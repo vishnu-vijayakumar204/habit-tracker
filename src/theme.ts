@@ -10,6 +10,8 @@ const light = {
   accentSoft: '#EEEEFC',
   onAccent: '#FFFFFF',
   backdrop: 'rgba(10, 12, 20, 0.45)',
+  error: '#C2261D',
+  errorSoft: '#FDECEA',
 };
 
 const dark: typeof light = {
@@ -22,6 +24,8 @@ const dark: typeof light = {
   accentSoft: '#26264A',
   onAccent: '#0E0F14',
   backdrop: 'rgba(0, 0, 0, 0.6)',
+  error: '#FF8A80',
+  errorSoft: '#3A1A1A',
 };
 
 export type Theme = typeof light;

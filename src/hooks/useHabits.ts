@@ -1,53 +1,69 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 
-export type Habit = {
-  id: string;
-  name: string;
-  streak: number;
-  createdAt: number;
-};
+import { createHabit, fetchHabits, incrementHabit, type Habit } from '@/lib/habitsApi';
 
-const STORAGE_KEY = 'habits:v1';
+export type { Habit };
 
 export function useHabits() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
-        if (raw) setHabits(JSON.parse(raw) as Habit[]);
-      })
-      .catch(() => {})
-      .finally(() => setLoaded(true));
+  const load = useCallback(async () => {
+    try {
+      setHabits(await fetchHabits());
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not load habits');
+    } finally {
+      setLoaded(true);
+    }
   }, []);
 
-  // Persist after the initial load so we never overwrite saved data with [].
   useEffect(() => {
-    if (!loaded) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(habits)).catch(() => {});
-  }, [habits, loaded]);
+    load();
+  }, [load]);
 
-  const addHabit = useCallback((name: string) => {
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
+  /** Creates the habit on the server. Returns true on success. */
+  const addHabit = useCallback(async (name: string) => {
     const trimmed = name.trim();
-    if (!trimmed) return;
-    setHabits((prev) => [
-      ...prev,
-      {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        name: trimmed,
-        streak: 0,
-        createdAt: Date.now(),
-      },
-    ]);
+    if (!trimmed) return false;
+    try {
+      const habit = await createHabit(trimmed);
+      setHabits((prev) => [...prev, habit]);
+      setError(null);
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not add habit');
+      return false;
+    }
   }, []);
 
-  const incrementStreak = useCallback((id: string) => {
-    setHabits((prev) =>
-      prev.map((h) => (h.id === id ? { ...h, streak: h.streak + 1 } : h)),
-    );
+  /** Optimistically bumps the streak, then reconciles with the server's value. */
+  const incrementStreak = useCallback(async (id: string) => {
+    const bump = (delta: number) =>
+      setHabits((prev) => prev.map((h) => (h.id === id ? { ...h, streak: h.streak + delta } : h)));
+
+    bump(1);
+    try {
+      const saved = await incrementHabit(id);
+      // Rapid taps can resolve out of order; never move the count backwards.
+      setHabits((prev) =>
+        prev.map((h) => (h.id === id ? { ...saved, streak: Math.max(h.streak, saved.streak) } : h)),
+      );
+      setError(null);
+    } catch (e) {
+      bump(-1);
+      setError(e instanceof Error ? e.message : 'Could not update streak');
+    }
   }, []);
 
-  return { habits, loaded, addHabit, incrementStreak };
+  return { habits, loaded, refreshing, error, refresh, addHabit, incrementStreak };
 }

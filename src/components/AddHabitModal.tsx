@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -15,25 +16,33 @@ import { useTheme } from '@/theme';
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onAdd: (name: string) => void;
+  /** Resolves true when the habit was saved; the modal stays open on failure. */
+  onAdd: (name: string) => Promise<boolean>;
 };
 
 export function AddHabitModal({ visible, onClose, onAdd }: Props) {
   const theme = useTheme();
   const [name, setName] = useState('');
-  const canSave = name.trim().length > 0;
+  const [saving, setSaving] = useState(false);
+  const canSave = name.trim().length > 0 && !saving;
 
   const close = () => {
+    if (saving) return;
     setName('');
     onClose();
   };
 
   // `text` comes from the native submit event so a Return pressed right after
   // the last keystroke can't save a stale (truncated) name from React state.
-  const save = (text: string = name) => {
-    if (!text.trim()) return;
-    onAdd(text);
-    close();
+  const save = async (text: string = name) => {
+    if (!text.trim() || saving) return;
+    setSaving(true);
+    const ok = await onAdd(text);
+    setSaving(false);
+    if (ok) {
+      setName('');
+      onClose();
+    }
   };
 
   return (
@@ -53,6 +62,7 @@ export function AddHabitModal({ visible, onClose, onAdd }: Props) {
             placeholder="e.g. Drink 8 glasses of water"
             placeholderTextColor={theme.muted}
             autoFocus
+            editable={!saving}
             maxLength={60}
             returnKeyType="done"
             onSubmitEditing={(e) => save(e.nativeEvent.text)}
@@ -73,7 +83,11 @@ export function AddHabitModal({ visible, onClose, onAdd }: Props) {
               accessibilityState={{ disabled: !canSave }}
               style={[styles.button, { backgroundColor: theme.accent, opacity: canSave ? 1 : 0.4 }]}
             >
-              <Text style={[styles.buttonText, { color: theme.onAccent }]}>Add habit</Text>
+              {saving ? (
+                <ActivityIndicator color={theme.onAccent} />
+              ) : (
+                <Text style={[styles.buttonText, { color: theme.onAccent }]}>Add habit</Text>
+              )}
             </Pressable>
           </View>
         </View>
@@ -101,6 +115,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
-  button: { paddingHorizontal: 18, paddingVertical: 12, borderRadius: 12 },
+  button: {
+    minWidth: 96,
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
   buttonText: { fontSize: 15, fontWeight: '600' },
 });

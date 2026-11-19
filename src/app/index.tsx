@@ -1,6 +1,15 @@
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
-import { FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Platform,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddHabitModal } from '@/components/AddHabitModal';
@@ -10,7 +19,7 @@ import { useTheme } from '@/theme';
 
 export default function HomeScreen() {
   const theme = useTheme();
-  const { habits, loaded, addHabit, incrementStreak } = useHabits();
+  const { habits, loaded, refreshing, error, refresh, addHabit, incrementStreak } = useHabits();
   const [adding, setAdding] = useState(false);
 
   const handleTap = (id: string) => {
@@ -31,8 +40,22 @@ export default function HomeScreen() {
         </Text>
       </View>
 
+      {error ? (
+        <Pressable
+          onPress={refresh}
+          accessibilityRole="button"
+          style={[styles.error, { backgroundColor: theme.errorSoft }]}
+        >
+          <Text style={[styles.errorText, { color: theme.error }]}>{error}</Text>
+          <Text style={[styles.errorRetry, { color: theme.error }]}>Tap to retry</Text>
+        </Pressable>
+      ) : null}
+
       <FlatList
         data={habits}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
+        }
         keyExtractor={(h) => h.id}
         renderItem={({ item }) => <HabitCard habit={item} onPress={() => handleTap(item.id)} />}
         contentContainerStyle={styles.list}
@@ -46,7 +69,11 @@ export default function HomeScreen() {
                 Add your first habit to start building a streak.
               </Text>
             </View>
-          ) : null
+          ) : (
+            <View style={styles.empty}>
+              <ActivityIndicator color={theme.muted} />
+            </View>
+          )
         }
       />
 
@@ -75,6 +102,9 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 120, flexGrow: 1 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingBottom: 60 },
   emptyIcon: { fontSize: 44 },
+  error: { marginHorizontal: 20, marginBottom: 8, padding: 12, borderRadius: 12, gap: 2 },
+  errorText: { fontSize: 14, fontWeight: '600' },
+  errorRetry: { fontSize: 12 },
   emptyTitle: { fontSize: 18, fontWeight: '700' },
   emptyText: { fontSize: 15, textAlign: 'center', maxWidth: 260 },
   fab: {
