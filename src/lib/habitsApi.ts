@@ -45,6 +45,10 @@ export async function createHabit(name: string): Promise<Habit> {
   return habit;
 }
 
+export async function deleteHabit(id: string): Promise<void> {
+  await request<{ deleted: string }>(`/${id}`, { method: 'DELETE' });
+}
+
 export async function incrementHabit(id: string): Promise<Habit> {
   const { habit } = await request<{ habit: Habit }>(`/${id}/increment`, { method: 'POST' });
   return habit;

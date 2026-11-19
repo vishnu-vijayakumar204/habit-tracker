@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { createHabit, fetchHabits, incrementHabit, type Habit } from '@/lib/habitsApi';
+import {
+  createHabit,
+  deleteHabit,
+  fetchHabits,
+  incrementHabit,
+  type Habit,
+} from '@/lib/habitsApi';
 
 export type { Habit };
 
@@ -65,5 +71,26 @@ export function useHabits() {
     }
   }, []);
 
-  return { habits, loaded, refreshing, error, refresh, addHabit, incrementStreak };
+  /** Optimistically removes the habit, restoring it in place if the server delete fails. */
+  const removeHabit = useCallback(async (habit: Habit) => {
+    let index = -1;
+    setHabits((prev) => {
+      index = prev.findIndex((h) => h.id === habit.id);
+      return prev.filter((h) => h.id !== habit.id);
+    });
+    try {
+      await deleteHabit(habit.id);
+      setError(null);
+    } catch (e) {
+      setHabits((prev) => {
+        if (prev.some((h) => h.id === habit.id)) return prev;
+        const next = [...prev];
+        next.splice(index < 0 ? next.length : Math.min(index, next.length), 0, habit);
+        return next;
+      });
+      setError(e instanceof Error ? e.message : 'Could not delete habit');
+    }
+  }, []);
+
+  return { habits, loaded, refreshing, error, refresh, addHabit, incrementStreak, removeHabit };
 }

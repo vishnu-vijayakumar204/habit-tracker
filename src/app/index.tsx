@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Platform,
   Pressable,
@@ -14,12 +15,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddHabitModal } from '@/components/AddHabitModal';
 import { HabitCard } from '@/components/HabitCard';
-import { useHabits } from '@/hooks/useHabits';
+import { useHabits, type Habit } from '@/hooks/useHabits';
 import { useTheme } from '@/theme';
 
 export default function HomeScreen() {
   const theme = useTheme();
-  const { habits, loaded, refreshing, error, refresh, addHabit, incrementStreak } = useHabits();
+  const { habits, loaded, refreshing, error, refresh, addHabit, incrementStreak, removeHabit } =
+    useHabits();
   const [adding, setAdding] = useState(false);
 
   const handleTap = (id: string) => {
@@ -27,6 +29,20 @@ export default function HomeScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     }
     incrementStreak(id);
+  };
+
+  const confirmDelete = (habit: Habit) => {
+    const message = `"${habit.name}" and its ${habit.streak}-day streak will be permanently deleted.`;
+    if (Platform.OS === 'web') {
+      // Alert.alert has no button support on web.
+      if (window.confirm(`Delete habit?\n\n${message}`)) removeHabit(habit);
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    Alert.alert('Delete habit?', message, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => removeHabit(habit) },
+    ]);
   };
 
   return (
@@ -57,7 +73,13 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.muted} />
         }
         keyExtractor={(h) => h.id}
-        renderItem={({ item }) => <HabitCard habit={item} onPress={() => handleTap(item.id)} />}
+        renderItem={({ item }) => (
+          <HabitCard
+            habit={item}
+            onPress={() => handleTap(item.id)}
+            onLongPress={() => confirmDelete(item)}
+          />
+        )}
         contentContainerStyle={styles.list}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={

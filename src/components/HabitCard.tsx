@@ -6,18 +6,25 @@ import { useTheme } from '@/theme';
 type Props = {
   habit: Habit;
   onPress: () => void;
+  onLongPress: () => void;
 };
 
-export function HabitCard({ habit, onPress }: Props) {
+export function HabitCard({ habit, onPress, onLongPress }: Props) {
   const theme = useTheme();
   const days = habit.streak === 1 ? 'day' : 'days';
 
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={450}
       accessibilityRole="button"
       accessibilityLabel={`${habit.name}, ${habit.streak} ${days} streak`}
-      accessibilityHint="Tap to add one to the streak"
+      accessibilityHint="Tap to add one to the streak. Long press to delete."
+      accessibilityActions={[{ name: 'longpress', label: 'Delete habit' }]}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === 'longpress') onLongPress();
+      }}
       style={({ pressed }) => [
         styles.card,
         {
@@ -32,7 +39,7 @@ export function HabitCard({ habit, onPress }: Props) {
         <Text style={[styles.name, { color: theme.text }]} numberOfLines={2}>
           {habit.name}
         </Text>
-        <Text style={[styles.hint, { color: theme.muted }]}>Tap to log today</Text>
+        <Text style={[styles.hint, { color: theme.muted }]}>Tap to log · hold to delete</Text>
       </View>
 
       <View style={[styles.badge, { backgroundColor: theme.accentSoft }]}>
